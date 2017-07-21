@@ -151,7 +151,7 @@ class Index{
     var self = this;
     // PeerJS object
     var id = (new Date()).getTime();
-    this.peer = new Peer(id,{turn:false,debug:3,key:key,origin:'https://windowcast-b44dd.firebaseapp.com'});
+    this.peer = new Peer(id,{turn:true,debug:3,key:key,origin:'https://windowcast-b44dd.firebaseapp.com'});
     this.peer.on('open', self.proxy(this.peerOpen,this));
     this.peer.on('call', self.proxy(this.peerCall,this));
     this.peer.on('error', self.proxy(this.peerError,this));
