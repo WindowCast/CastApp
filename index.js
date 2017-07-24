@@ -3,8 +3,19 @@ const Peer = require('skyway-peerjs-electron');
 const electron = require('electron');
 const desktopCapturer = electron.desktopCapturer;
 
+const dgram = require('dgram');
+const toBuffer = require('blob-to-buffer');
+
 class Index{
   constructor(){
+    this.MIME_TYPE = 'image/jpg';
+    //this.MIME_TYPE = 'image/svg+xml';
+
+    // UDP初期設定
+    this.udpClient = dgram.createSocket('udp4');
+    this.PORT = 33333;
+    this.HOST = '127.0.0.1';
+
     //ウィンドウ情報を取得
     this.getSources();
 
@@ -221,12 +232,56 @@ class Index{
     });
   }
 
+  dataUrlToBuffer(dataurl){
+    var v = dataurl.split(',');
+    var type = v[0].replace("data:","").replace(";base64","");
+    var bin = atob(v[1]);
+    var buffer = new Buffer(bin.length);
+    for (var i = 0; i < bin.length; i++) {
+      buffer[i] = bin.charCodeAt(i);
+    }
+    return buffer;
+  }
+
+  udpSendCallback(err, bytes) {
+    if (err) throw err;
+    //console.log("bytes "+bytes);
+  };
+
+  //数値をbyte配列に変換
+  // https://sites.google.com/site/nekousaobject/javascripttip/javascriptno-suuchi-wo-bytehairetsu-ni-henkan
+  parseBytes(v,n){
+      var result_array = new Array(n);
+      for(var i = 1; i <= n; i++){
+          var shift = (i-1) * 8;
+          result_array[n-i] = (v >>> shift) & 0xff;
+      }
+      return result_array;
+  }
+
   requestAnimationFrame(){
     //console.log("requestAnimationFrame");
     //キャンバスサイズ変更
     this.canvasElement.width = this.canvasSize.width;
     this.canvasElement.height = this.canvasSize.height;
     this.canvasContext.drawImage(this.videoElement,0,0);
+
+    // キャプチャした画像をUDPでUnityに送信
+    var buffer = this.dataUrlToBuffer(this.canvasElement.toDataURL(this.MIME_TYPE));
+    document.getElementById('sendBufferSize').innerHTML = buffer.length;
+
+    //headerとして画像サイズをまず送る
+    var b = new Buffer( this.parseBytes(buffer.length,4).reverse() );
+    this.udpClient.send(b, 0, b.length, this.PORT, this.HOST,this.proxy(this.udpSendCallback,this));
+
+    //分割して送信する
+    var offset = 0;
+    var size = 1200;
+    for(offset=0;offset<buffer.length;offset+=size){
+      this.udpClient.send(buffer, offset, size, this.PORT, this.HOST,this.proxy(this.udpSendCallback,this));
+    }
+    var splitCnt = Math.ceil(buffer.length / size);
+    document.getElementById('sendBufferSize').innerHTML = buffer.length+" "+splitCnt;
 
     var fnc = this.proxy(this.requestAnimationFrame,this);
     window.requestAnimationFrame(fnc);
