@@ -2,19 +2,25 @@ window.fetch = null;
 const Peer = require('skyway-peerjs-electron');
 const electron = require('electron');
 const desktopCapturer = electron.desktopCapturer;
-
-const dgram = require('dgram');
-const toBuffer = require('blob-to-buffer');
+const http = require('http');
+const mjpegServer = require('mjpeg-server');
 
 class Index{
   constructor(){
     this.MIME_TYPE = 'image/jpg';
     //this.MIME_TYPE = 'image/svg+xml';
 
-    // UDP初期設定
-    this.udpClient = dgram.createSocket('udp4');
-    this.PORT = 33333;
-    this.HOST = '127.0.0.1';
+    //mjpeg-server初期化
+    var self = this;
+    this.mjpegReqHandler = null;
+    var listener = this.proxy(function(req, res) {
+	     this.mjpegReqHandler = mjpegServer.createReqHandler(req, res);
+       console.log("mjpegReqHandler")
+       console.log(this.mjpegReqHandler);
+    },this);
+    http.createServer(listener).listen(8081);
+
+    this.bufferList = [];
 
     //ウィンドウ情報を取得
     this.getSources();
@@ -266,22 +272,16 @@ class Index{
     this.canvasElement.height = this.canvasSize.height;
     this.canvasContext.drawImage(this.videoElement,0,0);
 
-    // キャプチャした画像をUDPでUnityに送信
-    var buffer = this.dataUrlToBuffer(this.canvasElement.toDataURL(this.MIME_TYPE));
+    // キャプチャした画像をUnityに送信
+    var buffer = this.dataUrlToBuffer(this.canvasElement.toDataURL(this.MIME_TYPE,1.0));
     document.getElementById('sendBufferSize').innerHTML = buffer.length;
 
-    //headerとして画像サイズをまず送る
-    var b = new Buffer( this.parseBytes(buffer.length,4).reverse() );
-    this.udpClient.send(b, 0, b.length, this.PORT, this.HOST,this.proxy(this.udpSendCallback,this));
-
-    //分割して送信する
-    var offset = 0;
-    var size = 1200;
-    for(offset=0;offset<buffer.length;offset+=size){
-      this.udpClient.send(buffer, offset, size, this.PORT, this.HOST,this.proxy(this.udpSendCallback,this));
+    if(this.mjpegReqHandler != null){
+      var fnc = this.proxy(function(){
+        //this.mjpegReqHandler.close();
+      },this);
+      this.mjpegReqHandler.write(buffer,fnc);
     }
-    var splitCnt = Math.ceil(buffer.length / size);
-    document.getElementById('sendBufferSize').innerHTML = buffer.length+" "+splitCnt;
 
     var fnc = this.proxy(this.requestAnimationFrame,this);
     window.requestAnimationFrame(fnc);

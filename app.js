@@ -6,6 +6,8 @@ var BrowserWindow = electron.BrowserWindow;
 
 var mainWindow = null;
 
+//描画優先度変更への対策
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.on('window-all-closed', function() {
   if (process.platform != 'darwin')
     app.quit();

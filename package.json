@@ -11,6 +11,12 @@
   "license": "ISC",
   "dependencies": {
     "blob-to-buffer": "^1.2.6",
-    "skyway-peerjs-electron": "^0.3.14"
+    "http": "0.0.0",
+    "mjpeg-server": "^0.3.0",
+    "skyway-peerjs-electron": "^0.3.14",
+    "sleep": "^5.1.1"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^1.5.11"
   }
 }
